@@ -19,7 +19,7 @@ eval_episodes: 10000
 
 
 # rollout params
-max_iterations: 1000000
+max_iterations: 10000000
 
 # ddpg 参数
 cliprange: 0.2

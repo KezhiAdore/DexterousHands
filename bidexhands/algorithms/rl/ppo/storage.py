@@ -72,8 +72,8 @@ class RolloutStorage:
         trajectory_lengths = (done_indices[1:] - done_indices[:-1])
         return trajectory_lengths.float().mean(), self.rewards.mean()
 
-    def mini_batch_generator(self, num_mini_batches):
-        batch_size = self.num_envs * self.num_transitions_per_env
+    def mini_batch_generator(self, num_mini_batches, n_stack=1):
+        batch_size = self.num_envs * self.num_transitions_per_env * n_stack
         mini_batch_size = batch_size // num_mini_batches
 
         if self.sampler == "sequential":

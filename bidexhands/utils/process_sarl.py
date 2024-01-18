@@ -1,4 +1,4 @@
-from bidexhands.algorithms.rl.ppo import PPO
+from bidexhands.algorithms.rl.ppo import PPO, ATPPO
 from bidexhands.algorithms.rl.sac import SAC
 from bidexhands.algorithms.rl.td3 import TD3
 from bidexhands.algorithms.rl.ddpg import DDPG
