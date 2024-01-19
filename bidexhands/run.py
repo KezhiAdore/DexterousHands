@@ -1,8 +1,8 @@
 import os
 import time
 
-cuda_list = [0,1,2]
-seed_list = [0,1,2]
+cuda_list = [0]
+seed_list = [0]
 
 algo_list = [
     "atppo", 
@@ -14,14 +14,25 @@ algo_list = [
 
 task_list = [
     "ShadowHandOver", 
-    "ShadowHandScissors"
-    "ShadowHandPen",
-    "ShadowHandSwingCup",
+    "ShadowHandCatchUnderarm",
+    "ShadowHandOver2Underarm",
+    "ShadowHandCatchAbreast",
+    "ShadowHandTwoCatchUnderarm",
+    "ShadowHandPushBlock",
+    "ShadowHandScissors",
+    "ShadowHandBlockStack",
+    "ShadowHandPourWater",
+    "ShadowHandGraspAndPlace",
+    "ShadowHandLiftUnderarm",
     "ShadowHandDoorCloseInward",
     "ShadowHandDoorOpenInward",
     "ShadowHandDoorCloseOutward",
     "ShadowHandDoorOpenOutward",
-    "ShadowHandReOrientation"
+    "ShadowHandPen",
+    "ShadowHandSwingCup",
+    "ShadowHandReOrientation",
+    "ShadowHandSwitch",
+    "ShadowHandBottleCap",
     ]
 
 count = 0
