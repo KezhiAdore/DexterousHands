@@ -19,7 +19,7 @@ learn:
   hidden_layer: 3
 
   cliprange: 0.2
-  nsteps: 32
+  nsteps: 8
   noptepochs: 1
   nminibatches: 1 # this is per agent
   replay_size: 40000

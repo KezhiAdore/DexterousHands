@@ -7,9 +7,9 @@ seed_list = [0]
 algo_list = [
     "atppo", 
     "ppo",
-    "trpo",
-    "sac",
-    "td3",
+    # "trpo",
+    # "sac",
+    # "td3",
     ]
 
 task_list = [
@@ -21,7 +21,6 @@ task_list = [
     "ShadowHandPushBlock",
     "ShadowHandScissors",
     "ShadowHandBlockStack",
-    "ShadowHandPourWater",
     "ShadowHandGraspAndPlace",
     "ShadowHandLiftUnderarm",
     "ShadowHandDoorCloseInward",
@@ -46,6 +45,7 @@ for task in task_list:
                     --rl_device=cuda:{cuda_id} \
                     --sim_device=cuda:{cuda_id} \
                     --seed={seed} \
+                    --num_envs=2048\
                     --headless \
                     2>&1 >/dev/null &"
             count+=1
