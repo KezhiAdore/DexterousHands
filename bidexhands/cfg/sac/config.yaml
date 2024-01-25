@@ -12,7 +12,7 @@ learn:
   print_log: True
 
   # rollout params
-  max_iterations: 6105
+  max_iterations: 12210
 
   # training params
   hidden_nodes: 1024
@@ -36,5 +36,5 @@ learn:
 #  lam: 0.95
 #  init_noise_std: 0.8
 
-  log_interval: 1
+  log_interval: 10
   asymmetric: False
