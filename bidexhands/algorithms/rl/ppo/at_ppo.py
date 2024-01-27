@@ -2,6 +2,7 @@ import os
 import torch
 import time
 from torch import nn
+import numpy as np
 import copy
 from torch import Tensor
 from collections import deque, namedtuple
@@ -11,7 +12,7 @@ from torch.distributions import MultivariateNormal
 
 ReplayBuffer = namedtuple("ReplayBuffer", ["obs", "state", "act", "rew", "done", 
                                            "log_prob", "obs_next", "adv", "vs",
-                                           "value", "mu", "sigma"])
+                                           "value", "mu", "sigma", "log_last"])
 StorageRecord = namedtuple("StorageRecord", ["storage", "last_obs"])
 
 def weight_discount_cum(adv, done, weight, gamma):
@@ -82,6 +83,8 @@ class ATPPO(PPO):
         self.replay_buffer = None
         self.at_lam = at_lam
         self.history_len = history_len
+        self.beta = 1
+        self.target_kl = 0.1
     
     def process_buffer(self):
         obs_list = []
@@ -121,8 +124,10 @@ class ATPPO(PPO):
         
         vs, adv = self.compute_atrace(obs, state, act, rew, obs_next, 
                                         state_next, done, log_prob)
-        
-        self.replay_buffer = ReplayBuffer(obs, state, act, rew, done, log_prob, obs_next, adv, vs, value, mu, sigma)
+        with torch.no_grad():
+            log_last,_,_,_,_ = self.actor_critic.evaluate(obs, state, act)
+            log_last = log_last.unsqueeze(-1)
+        self.replay_buffer = ReplayBuffer(obs, state, act, rew, done, log_prob, obs_next, adv, vs, value, mu, sigma, log_last)
         
     
     def compute_atrace(self, obs, state, act, rew, obs_next, state_next, done, log_prob):
@@ -236,7 +241,6 @@ class ATPPO(PPO):
             #        in self.storage.mini_batch_generator(self.num_mini_batches):
 
             for indices in batch:
-                # breakpoint()
                 obs_batch = self.replay_buffer.obs.view(-1, *self.replay_buffer.obs.size()[2:])[indices]
                 if self.asymmetric:
                     states_batch = self.replay_buffer.state.view(-1, *self.replay_buffer.state.size()[2:])[indices]
@@ -246,6 +250,7 @@ class ATPPO(PPO):
                 target_values_batch = self.replay_buffer.value.view(-1, 1)[indices]
                 returns_batch = self.replay_buffer.vs.view(-1, 1)[indices]
                 old_actions_log_prob_batch = self.replay_buffer.log_prob.view(-1, 1)[indices]
+                last_actions_log_prob_batch = self.replay_buffer.log_last.view(-1, 1)[indices]
                 advantages_batch = self.replay_buffer.adv.view(-1, 1)[indices]
                 old_mu_batch = self.replay_buffer.mu.view(-1, self.replay_buffer.act.size(-1))[indices]
                 old_sigma_batch = self.replay_buffer.sigma.view(-1, self.replay_buffer.act.size(-1))[indices]
@@ -255,19 +260,29 @@ class ATPPO(PPO):
                                                                                                                        actions_batch)
 
                 # KL
-                if self.desired_kl != None and self.schedule == 'adaptive':
+                # if self.desired_kl != None and self.schedule == 'adaptive':
 
-                    kl = torch.sum(
-                        sigma_batch - old_sigma_batch + (torch.square(old_sigma_batch.exp()) + torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch.exp())) - 0.5, axis=-1)
-                    kl_mean = torch.mean(kl)
+                #     kl = torch.sum(
+                #         sigma_batch - old_sigma_batch + (torch.square(old_sigma_batch.exp()) + torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch.exp())) - 0.5, axis=-1)
+                #     kl_mean = torch.mean(kl)
 
-                    if kl_mean > self.desired_kl * 2.0:
-                        self.step_size = max(1e-5, self.step_size / 1.5)
-                    elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
-                        self.step_size = min(1e-2, self.step_size * 1.5)
+                #     if kl_mean > self.desired_kl * 2.0:
+                #         self.step_size = max(1e-5, self.step_size / 1.5)
+                #     elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
+                #         self.step_size = min(1e-2, self.step_size * 1.5)
 
-                    for param_group in self.optimizer.param_groups:
-                        param_group['lr'] = self.step_size
+                #     for param_group in self.optimizer.param_groups:
+                #         param_group['lr'] = self.step_size
+                
+                last_ratio = actions_log_prob_batch - torch.squeeze(last_actions_log_prob_batch)
+                last_ratio = torch.clip(last_ratio, -10, 10)
+                approx_kl = torch.mean(torch.exp(last_ratio) - 1 - last_ratio)
+                if self.target_kl is not None:
+                    if approx_kl > 1.5 * self.target_kl:
+                        self.beta = 2 * self.beta
+                    elif approx_kl < self.target_kl / 1.5:
+                        self.beta = self.beta / 2
+                self.beta = np.clip(self.beta, 0.1, 10)
 
                 # Surrogate loss
                 ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
@@ -286,7 +301,7 @@ class ATPPO(PPO):
                 else:
                     value_loss = (returns_batch - value_batch).pow(2).mean()
 
-                loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean()
+                loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean() + self.beta * approx_kl
 
                 # Gradient step
                 self.optimizer.zero_grad()
